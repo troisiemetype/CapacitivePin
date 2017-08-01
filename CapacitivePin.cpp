@@ -24,14 +24,15 @@
 // Initialisation of vars
 CapacitivePin::CapacitivePin():_samples(6),
 								_reads(16),
-								_sampleInterval(1),
+								_sampleInterval(5),
 								_maxDelta(1),
 								_touchThreshold(100),
 								_touchReleaseThreshold(80),
-								_senseThreshold(15),
-								_senseReleaseThreshold(10),
+								_senseThreshold(10),
+								_senseReleaseThreshold(7),
 								_noiseIncrement(1),
-								_noiseCount(3){
+								_noiseCountRising(5),
+								_noiseCountFalling(2){
 	_sendPin = DigitalPin();
 	_receivePin = DigitalPin();
 	_lastSampleTime = millis();
@@ -57,7 +58,7 @@ uint8_t CapacitivePin::begin(uint8_t receivePin, uint8_t sendPin){
 
 	_previousState = _state = Idle;
 
-	_noiseCount = 3;
+	_noiseCountRising = 3;
 
 	//Init the baseline value
 	uint32_t baseline = 0;
@@ -83,6 +84,7 @@ uint8_t CapacitivePin::begin(uint8_t receivePin, uint8_t sendPin){
 uint8_t CapacitivePin::update(){
 	// Every sample interval, get a new reading
 	if((millis() - _lastSampleTime) > _sampleInterval){
+		_timeout = _baseline + 2 * _touchThreshold;
 		_lastSampleTime = millis();
 		// Compute the average from the last _reads readings
 		_runningAverage -= _raws[_readIndex];
@@ -136,19 +138,41 @@ void CapacitivePin::setNoiseIncrement(uint8_t noiseIncrement){
 	_noiseIncrement = noiseIncrement;
 }
 
-void CapacitivePin::setNoiseCount(uint8_t noiseCount){
-	_noiseCount = noiseCount;
+void CapacitivePin::setNoiseCountRising(uint8_t noiseCount){
+	_noiseCountRising = noiseCount;
+}
+
+void CapacitivePin::setNoiseCountFalling(uint8_t noiseCount){
+	_noiseCountFalling = noiseCount;
 }
 
 bool CapacitivePin::isTouched(){
+	if(_state == Touch) return true;
 	return false;
 }
 
 bool CapacitivePin::isJustTouched(){
+	if(_state == Touch && _previousState != Touch) return true;
 	return false;
 }
 
-bool CapacitivePin::isJustReleased(){
+bool CapacitivePin::isJustTouchReleased(){
+	if(_state != Touch && _previousState == Touch) return true;
+	return false;
+}
+
+bool CapacitivePin::isProximity(){
+	if(_state == Proximity) return true;
+	return false;
+}
+
+bool CapacitivePin::isJustProximity(){
+	if(_state == Proximity && _previousState != Proximity) return true;
+	return false;
+}
+
+bool CapacitivePin::isJustProximityReleased(){
+	if(_state != Proximity && _previousState == Proximity) return true;
 	return false;
 }
 
@@ -183,7 +207,7 @@ uint16_t CapacitivePin::updateSample(){
 		_sendPin.set();
 
 		// loop until the receive pin reads high
-		for(uint16_t i = 0; i < 0xFFFF; i++){
+		for(uint16_t i = 0; i < _timeout; i++){
 			if(_receivePin.get()) break;
 			++count;
 		}
@@ -255,20 +279,21 @@ uint8_t CapacitivePin::updateRead(){
 	Serial.print(_data);
 	Serial.print("\t state \t");
 	Serial.println(_state);
+
 	return _state;
 }
 
 // Update the baseline value.
 // TODO: 
 uint8_t CapacitivePin::updateBaseline(){
-
+	return 0;
 }
 
 uint8_t CapacitivePin::updateNoise(){
 	if(_state == Rising){
 		if(_previousState != _state){
 			_noiseInstantCount = 0;
-		} else if(++_noiseInstantCount > _noiseCount){
+		} else if(++_noiseInstantCount >= _noiseCountRising){
 			_noiseInstantCount = 0;
 			_baseline += _noiseIncrement;
 			_state = Idle;
@@ -276,10 +301,11 @@ uint8_t CapacitivePin::updateNoise(){
 	} else if(_state == Falling){
 		if(_previousState != _state){
 			_noiseInstantCount = 0;
-		} else if(++_noiseInstantCount > _noiseCount){
+		} else if(++_noiseInstantCount >= _noiseCountFalling){
 			_noiseInstantCount = 0;
 			_baseline -= _noiseIncrement;
 			_state = Idle;
 		}
 	}
+	return _state;
 }

@@ -58,11 +58,16 @@ public:
 
 	void setMaxDelta(uint8_t maxDelta);
 	void setNoiseIncrement(uint8_t noiseIncrement);
-	void setNoiseCount(uint8_t noiseCount);
+	void setNoiseCountRising(uint8_t noiseCount);
+	void setNoiseCountFalling(uint8_t noiseCount);
 
 	bool isTouched();
 	bool isJustTouched();
-	bool isJustReleased();
+	bool isJustTouchReleased();
+
+	bool isProximity();
+	bool isJustProximity();
+	bool isJustProximityReleased();
 
 	uint16_t getData();
 	uint8_t getBaseline();
@@ -109,6 +114,8 @@ private:
 	uint16_t _senseReleaseThreshold;
 	uint16_t _touchThreshold;
 	uint16_t _touchReleaseThreshold;
+
+	uint16_t _timeout;
 
 	uint8_t _state;
 	uint8_t _previousState;

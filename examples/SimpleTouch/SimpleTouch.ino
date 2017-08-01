@@ -51,7 +51,7 @@ void loop(){
 //	Serial.print('\t');
 //	Serial.println(sensePin.getData());
 
-	if(sensePin.getData() > 100){
+	if(sensePin.isTouched()){
 		led.set();
 	} else {
 		led.clear();
